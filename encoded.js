@@ -3,11 +3,11 @@ const isChrome = (navigator.userAgent.indexOf('Firefox') === -1 && navigator.use
 if (isChrome) {
   window.oldRTCPeerConnection = RTCPeerConnection;
   window.RTCPeerConnection = new Proxy(window.RTCPeerConnection, {
-    construct: function(target, args) {
+    construct: function (target, args) {
       if (args.length > 0) {
         args[0]['encodedInsertableStreams'] = true;
       } else {
-        args.push({'encodedInsertableStreams': true});
+        args.push({ 'encodedInsertableStreams': true });
       }
       let pc = new window.oldRTCPeerConnection(args[0]);
       return pc;
@@ -15,14 +15,18 @@ if (isChrome) {
   });
 }
 
+// custom data append params
+var CustomDataDetector = 'AgoraWrc';
+var CustomDatLengthByteCount = 4;
+
 // create Agora client
-var client = AgoraRTC.createClient({mode: "rtc", codec: "h264"});
+var client = AgoraRTC.createClient({ mode: "rtc", codec: "h264" });
 const senderChannel = new MessageChannel;
 const receiverChannel = new MessageChannel;
 
 let videoSelect = document.querySelector('select#videoSource');
 AgoraRTC.getDevices().then(devices => {
-  const videoDevices = devices.filter(function(device){
+  const videoDevices = devices.filter(function (device) {
     return device.kind === "videoinput";
   });
   for (let i = 0; i !== videoDevices.length; ++i) {
@@ -90,10 +94,10 @@ $("#leave").click(function (e) {
   leave();
 })
 
-document.getElementById("watermark").oninput = async function(e) {
+document.getElementById("watermark").oninput = async function (e) {
   watermarkText = $("#watermark").val();
   if (!isChrome) {
-    senderChannel.port1.postMessage({watermark: watermarkText});
+    senderChannel.port1.postMessage({ watermark: watermarkText });
   }
 };
 
@@ -109,7 +113,7 @@ async function join() {
     client.join(options.appid, options.channel, options.token || null),
     // create local tracks, using microphone and camera
     localTracks.audioTrack || AgoraRTC.createMicrophoneAudioTrack(),
-    localTracks.videoTrack || AgoraRTC.createCameraVideoTrack({cameraId: videoSelect.value, encoderConfig: '720p_1'})
+    localTracks.videoTrack || AgoraRTC.createCameraVideoTrack({ cameraId: videoSelect.value, encoderConfig: '720p_1' })
   ]);
 
   // play local video track
@@ -144,6 +148,16 @@ async function leave() {
   console.log("client leaves channel success");
 }
 
+function getIntBytes(x) {
+  var bytes = [];
+  var i = CustomDatLengthByteCount;
+  do {
+    bytes[--i] = x & (255);
+    x = x >> 8;
+  } while (i)
+  return bytes;
+}
+
 async function publish() {
   // publish local tracks to channel
   await client.publish(Object.values(localTracks));
@@ -153,7 +167,7 @@ async function publish() {
   const pc = __ARTC__.__CLIENT_LIST__[0]._p2pChannel.connection.peerConnection;
   const senders = pc.getSenders();
   let i = 0;
-  for(i = 0; i < senders.length; i++) {
+  for (i = 0; i < senders.length; i++) {
     if (senders[i].track?.kind == 'video') {
       break;
     }
@@ -170,24 +184,24 @@ async function publish() {
       transform(chunk, controller) {
         const watermark = textEncoder.encode(watermarkText);
         const frame = chunk.data;
-        const data = new Uint8Array(chunk.data.byteLength + watermark.byteLength + 1 + 8);
+        const data = new Uint8Array(chunk.data.byteLength + watermark.byteLength + CustomDatLengthByteCount + CustomDataDetector.length);
         data.set(new Uint8Array(frame), 0);
-        data.set (watermark, frame.byteLength);
-        data[frame.byteLength + watermark.byteLength] = watermark.byteLength;
-
-         // Set magic number at the end
-        const magicIndex = chunk.data.byteLength + watermark.byteLength + 1;
-        const magicString = 'AgoraWrc';
-        for (let i = 0; i < 8; i++) {
-          data[magicIndex + i] = magicString.charCodeAt(i);
+        data.set(watermark, frame.byteLength);
+        var bytes = getIntBytes(watermark.byteLength);
+        for (let i = 0; i < CustomDatLengthByteCount; i++) {
+          data[frame.byteLength + watermark.byteLength + i] = bytes[i];
         }
 
+        // Set magic string at the end
+        const magicIndex = frame.byteLength + watermark.byteLength + CustomDatLengthByteCount;
+        for (let i = 0; i < CustomDataDetector.length; i++) {
+          data[magicIndex + i] = CustomDataDetector.charCodeAt(i);
+        }
         chunk.data = data.buffer;
-  
         controller.enqueue(chunk);
       }
     });
-  
+
     streams.readable.pipeThrough(transformer).pipeTo(streams.writable);
   } else {
     const worker = new Worker('script-transform-worker.js');
@@ -197,7 +211,7 @@ async function publish() {
       }
     });
 
-    const senderTransform = new RTCRtpScriptTransform(worker, {name:'outgoing', port: senderChannel.port2}, [senderChannel.port2]);
+    const senderTransform = new RTCRtpScriptTransform(worker, { name: 'outgoing', port: senderChannel.port2 }, [senderChannel.port2]);
     senderTransform.port = senderChannel.port1;
     sender.transform = senderTransform;
 
@@ -208,7 +222,7 @@ async function publish() {
     });
 
     const watermarkInput = document.getElementById('watermark');
-    senderChannel.port1.postMessage({watermark: watermarkInput.value});
+    senderChannel.port1.postMessage({ watermark: watermarkInput.value });
   }
 }
 
@@ -227,10 +241,12 @@ async function subscribe(user, mediaType) {
     $("#remote-playerlist").append(player);
     user.videoTrack.play(`player-${uid}`);
 
-    const label = $('<span>').css({'z-index': 1000,
+    const label = $('<span>').css({
+      'z-index': 1000,
       'position': 'absolute',
       'margin': '5px',
-      'font-size': '22pt'});
+      'font-size': '22pt'
+    });
     $("#remote-playerlist").find(".player").children().append(label);
   }
   if (mediaType === 'audio') {
@@ -240,7 +256,7 @@ async function subscribe(user, mediaType) {
   const pc = __ARTC__.__CLIENT_LIST__[0]._p2pChannel.connection.peerConnection;
   const receivers = pc.getReceivers();
   let i = 0;
-  for(i = 0; i < receivers.length; i++) {
+  for (i = 0; i < receivers.length; i++) {
     if (receivers[i].track?.kind == 'video') {
       break;
     }
@@ -257,32 +273,31 @@ async function subscribe(user, mediaType) {
       transform(chunk, controller) {
         const view = new DataView(chunk.data);
 
-        const magicData = new Uint8Array(chunk.data, chunk.data.byteLength - 8, 8);
+        const magicData = new Uint8Array(chunk.data, chunk.data.byteLength - CustomDataDetector.length, CustomDataDetector.length);
         let magic = [];
-        for (let i = 0; i < 8; i ++) {
+        for (let i = 0; i < CustomDataDetector.length; i++) {
           magic.push(magicData[i]);
         }
         let magicString = String.fromCharCode(...magic);
 
-        if (magicString === 'AgoraWrc') {
-          const watermarkLen = view.getUint8(chunk.data.byteLength - (1 + 8));
-          const frameSize = chunk.data.byteLength - (watermarkLen + 1 + 8);
-    
+        if (magicString === CustomDataDetector) {
+          const watermarkLen = view.getUint32(chunk.data.byteLength - (CustomDatLengthByteCount + CustomDataDetector.length), false);
+          console.log("chunk.data ", chunk.data, "watermarkLen", watermarkLen);
+          const frameSize = chunk.data.byteLength - (watermarkLen + CustomDatLengthByteCount + CustomDataDetector.length);
           const watermarkBuffer = new Uint8Array(chunk.data, frameSize, watermarkLen);
           const watermark = textDecoder.decode(watermarkBuffer)
-    
+
           if (lastWatermark !== watermark) {
             $("#remote-playerlist").find(".player").find("span").text(watermark);
             lastWatermark = watermark;
           }
-    
+
           const frame = chunk.data;
           chunk.data = new ArrayBuffer(frameSize);
           const data = new Uint8Array(chunk.data);
           data.set(new Uint8Array(frame, 0, frameSize));
         }
-
-        controller.enqueue (chunk);
+        controller.enqueue(chunk);
       }
     });
     streams.readable.pipeThrough(transformer).pipeTo(streams.writable);
@@ -294,7 +309,7 @@ async function subscribe(user, mediaType) {
       }
     });
 
-    const receiverTransform = new RTCRtpScriptTransform(worker, {name:'incoming', port: receiverChannel.port2}, [receiverChannel.port2]);
+    const receiverTransform = new RTCRtpScriptTransform(worker, { name: 'incoming', port: receiverChannel.port2 }, [receiverChannel.port2]);
     receiverTransform.port = receiverChannel.port1;
     receiver.transform = receiverTransform;
     receiverTransform.port.onmessage = e => {
