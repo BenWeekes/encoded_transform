@@ -218,7 +218,8 @@ async function publish() {
   const senders = pc.getSenders();
   let i = 0;
   for (i = 0; i < senders.length; i++) {
-    if (senders[i].track?.kind == 'audio' || senders[i].track?.kind == 'video' ) {
+    //if (senders[i].track?.kind == 'audio' ||
+    if ( senders[i].track?.kind == 'video' ) {
       createEncoder(senders[i]);
     }
   }
@@ -316,10 +317,10 @@ async function subscribe(user, mediaType) {
   const pc = __ARTC__.__CLIENT_LIST__[0]._p2pChannel.connection.peerConnection;
   const receivers = pc.getReceivers();  
 
-  let enc_id;
+  let enc_id='na';
   if (mediaType === 'audio') {
     user.audioTrack.play();
-    enc_id=user.audioTrack._mediaStreamTrack.id;
+    //enc_id=user.audioTrack._mediaStreamTrack.id;
    
   } else {
     enc_id=user.videoTrack._mediaStreamTrack.id;
