@@ -59,7 +59,7 @@ onrtctransform = (event) => {
 
   function incoming(transformer) {
     transformer.reader.read().then(chunk => {
-      if (chunk.done)
+      if (chunk.value.done)
         return;
 
       if (chunk.value instanceof RTCEncodedVideoFrame) {
@@ -74,9 +74,9 @@ onrtctransform = (event) => {
 
         let magicString = String.fromCharCode(...magic);
         if (magicString === CustomDataDetector) {
-          const watermarkLen = view.getUint32(chunk.data.byteLength - (CustomDatLengthByteCount + CustomDataDetector.length), false);
-          const frameSize = chunk.data.byteLength - (watermarkLen + CustomDatLengthByteCount + CustomDataDetector.length);
-          const watermarkBuffer = new Uint8Array(chunk.data, frameSize, watermarkLen);
+          const watermarkLen = view.getUint32(chunk.value.data.byteLength - (CustomDatLengthByteCount + CustomDataDetector.length), false);
+          const frameSize = chunk.value.data.byteLength - (watermarkLen + CustomDatLengthByteCount + CustomDataDetector.length);
+          const watermarkBuffer = new Uint8Array(chunk.value.data, frameSize, watermarkLen);
           const watermark = textDecoder.decode(watermarkBuffer)
 
           if (lastWatermark !== watermark) {
