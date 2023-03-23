@@ -158,24 +158,7 @@ function getIntBytes(x) {
   return bytes;
 }
 
-async function publish() {
-  // publish local tracks to channel
-  await client.publish(Object.values(localTracks));
-  console.log("publish success");
-  $("#publish").attr("disabled", true);
-
-  const pc = __ARTC__.__CLIENT_LIST__[0]._p2pChannel.connection.peerConnection;
-  const senders = pc.getSenders();
-  let i = 0;
-  for (i = 0; i < senders.length; i++) {
-    if (senders[i].track?.kind == 'video') {
-      break;
-    }
-  }
-  let sender = null;
-  if (i < senders.length) {
-    sender = senders[i];
-  }
+async function createEncoder(sender) {
 
   if (isChrome) {
     const streams = sender.createEncodedStreams();
@@ -225,47 +208,23 @@ async function publish() {
     senderChannel.port1.postMessage({ watermark: watermarkInput.value });
   }
 }
-
-async function subscribe(user, mediaType) {
-  const uid = user.uid;
-  // subscribe to a remote user
-  await client.subscribe(user, mediaType);
-  console.log("subscribe success");
-  if (mediaType === 'video') {
-    const player = $(`
-      <div id="player-wrapper-${uid}">
-        <p class="player-name">remoteUser(${uid})</p>
-        <div id="player-${uid}" class="player"></div>
-      </div>
-    `);
-    $("#remote-playerlist").append(player);
-    user.videoTrack.play(`player-${uid}`);
-
-    const label = $('<span>').css({
-      'z-index': 1000,
-      'position': 'absolute',
-      'margin': '5px',
-      'font-size': '22pt'
-    });
-    $("#remote-playerlist").find(".player").children().append(label);
-  }
-  if (mediaType === 'audio') {
-    user.audioTrack.play();
-  }
+async function publish() {
+  // publish local tracks to channel
+  await client.publish(Object.values(localTracks));
+  console.log("publish success");
+  $("#publish").attr("disabled", true);
 
   const pc = __ARTC__.__CLIENT_LIST__[0]._p2pChannel.connection.peerConnection;
-  const receivers = pc.getReceivers();
+  const senders = pc.getSenders();
   let i = 0;
-  for (i = 0; i < receivers.length; i++) {
-    if (receivers[i].track?.kind == 'video') {
-      break;
+  for (i = 0; i < senders.length; i++) {
+    if (senders[i].track?.kind == 'audio' || senders[i].track?.kind == 'video' ) {
+      createEncoder(senders[i]);
     }
   }
-  let receiver = null;
-  if (i < receivers.length) {
-    receiver = receivers[i];
-  }
+}
 
+async function createDecoder(receiver,uid) {
   if (isChrome) {
     const streams = receiver.createEncodedStreams();
     const textDecoder = new TextDecoder();
@@ -282,11 +241,11 @@ async function subscribe(user, mediaType) {
 
         if (magicString === CustomDataDetector) {
           const watermarkLen = view.getUint32(chunk.data.byteLength - (CustomDatLengthByteCount + CustomDataDetector.length), false);
-          console.log("chunk.data ", chunk.data, "watermarkLen", watermarkLen);
           const frameSize = chunk.data.byteLength - (watermarkLen + CustomDatLengthByteCount + CustomDataDetector.length);
           const watermarkBuffer = new Uint8Array(chunk.data, frameSize, watermarkLen);
-          const watermark = textDecoder.decode(watermarkBuffer)
-
+          const watermark = textDecoder.decode(watermarkBuffer);
+          console.log("chunk.data ", chunk.data, "watermarkLen", watermarkLen, uid, watermark);
+          
           if (lastWatermark !== watermark) {
             $("#remote-playerlist").find(".player").find("span").text(watermark);
             lastWatermark = watermark;
@@ -322,6 +281,59 @@ async function subscribe(user, mediaType) {
       }
     });
   }
+}
+
+async function subscribe(user, mediaType) {
+  const uid = user.uid;
+  // subscribe to a remote user
+  await client.subscribe(user, mediaType);
+  console.log("subscribe success");
+  if (mediaType === 'video') {
+    const player = $(`
+      <div id="player-wrapper-${uid}">
+        <p class="player-name">remoteUser(${uid})</p>
+        <div id="player-${uid}" class="player"></div>
+      </div>
+    `);
+    $("#remote-playerlist").append(player);
+    user.videoTrack.play(`player-${uid}`);
+
+    const label = $('<span>').css({
+      'z-index': 1000,
+      'position': 'absolute',
+      'margin': '5px',
+      'font-size': '22pt'
+    });
+    $("#remote-playerlist").find(".player").children().append(label);
+  }
+  if (mediaType === 'audio') {
+    user.audioTrack.play();
+    console.warn("A",mediaType,user.audioTrack._mediaStreamTrack.id);
+  } else {
+    console.warn("V",mediaType,user.videoTrack._mediaStreamTrack.id);
+  }
+
+  const pc = __ARTC__.__CLIENT_LIST__[0]._p2pChannel.connection.peerConnection;
+  const receivers = pc.getReceivers();  
+
+  let enc_id;
+  if (mediaType === 'audio') {
+    user.audioTrack.play();
+    enc_id=user.audioTrack._mediaStreamTrack.id;
+   
+  } else {
+    enc_id=user.videoTrack._mediaStreamTrack.id;
+  }
+
+  console.warn(mediaType,enc_id);
+
+  for (let i = 0; i < receivers.length; i++) {
+      if (receivers[i].track && receivers[i].track.id===enc_id ) {
+        console.warn("Match",mediaType,enc_id);
+        createDecoder(receivers[i],uid);
+    }
+  }
+  
 }
 
 function handleUserPublished(user, mediaType) {
