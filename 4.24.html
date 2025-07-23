@@ -1,0 +1,583 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Video Viewer with Timestamp Display -- Agora</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        font-size: 16px;
+        line-height: 1.5;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 15px;
+      }
+      .container-fluid {
+        width: 100%;
+        padding: 0;
+      }
+      .alert {
+        padding: 12px 20px;
+        margin-bottom: 16px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        position: relative;
+      }
+      .alert-success {
+        color: #155724;
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+      }
+      .alert .close {
+        position: absolute;
+        top: 0;
+        right: 0;
+        padding: 12px 20px;
+        color: inherit;
+        background: none;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        opacity: 0.5;
+      }
+      .alert .close:hover {
+        opacity: 0.8;
+      }
+      .btn {
+        display: inline-block;
+        font-weight: 400;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: middle;
+        border: 1px solid transparent;
+        padding: 6px 12px;
+        font-size: 16px;
+        line-height: 1.5;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.15s ease-in-out;
+      }
+      .btn:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+      }
+      .btn-primary {
+        color: #fff;
+        background-color: #007bff;
+        border-color: #007bff;
+      }
+      .btn-primary:hover:not(:disabled) {
+        background-color: #0056b3;
+        border-color: #004085;
+      }
+      .btn-sm {
+        padding: 4px 8px;
+        font-size: 14px;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-right: -15px;
+        margin-left: -15px;
+      }
+      .col-sm {
+        flex: 1 0 0%;
+        max-width: 100%;
+        padding-right: 15px;
+        padding-left: 15px;
+      }
+      .w-100 {
+        width: 100% !important;
+      }
+      .button-group {
+        margin-top: 15px;
+      }
+      .button-group .btn {
+        margin-right: 10px;
+      }
+      .banner {
+        padding: 0;
+        background-color: #52575c;
+        color: white;
+      }
+      .banner-text {
+        padding: 8px 20px;
+        margin: 0;
+      }
+      #join-form {
+        margin-top: 10px;
+      }
+      .tips {
+        font-size: 10px;
+        margin-bottom: 2px;
+        color: gray;
+      }
+      .join-info-text {
+        margin-bottom: 2px;
+      }
+      input {
+        width: 100%;
+        margin-bottom: 2px;
+      }
+      .player {
+        width: 640px;
+        height: 360px;
+        position: relative;
+        background-color: #000;
+      }
+      .player-name {
+        margin: 8px 0;
+      }
+      #success-alert,
+      #success-alert-with-token {
+        display: none;
+      }
+      @media (max-width: 640px) {
+        .player {
+          width: 320px;
+          height: 240px;
+        }
+      }
+      .row {
+        margin-bottom: 15px;
+      }
+      #remote-playerlist > div {
+        position: relative;
+        display: inline-block;
+        margin-right: 10px;
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container-fluid banner">
+      <p class="banner-text">Video Viewer with Timestamp Display</p>
+    </div>
+    <div
+      id="success-alert"
+      class="alert alert-success alert-dismissible fade show"
+      role="alert"
+    >
+      <strong>Congratulations!</strong
+      ><span> You can invite others join this channel by click </span
+      ><a href="" target="_blank">here</a>
+      <button
+        type="button"
+        class="close"
+        data-dismiss="alert"
+        aria-label="Close"
+      >
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
+    <div
+      id="success-alert-with-token"
+      class="alert alert-success alert-dismissible fade show"
+      role="alert"
+    >
+      <strong>Congratulations!</strong
+      ><span> Joined room successfully as viewer. </span>
+      <button
+        type="button"
+        class="close"
+        data-dismiss="alert"
+        aria-label="Close"
+      >
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
+    <div class="container">
+      <form id="join-form">
+        <div class="row join-info-group">
+          <div class="col-sm">
+            <p class="join-info-text">AppID</p>
+            <input id="appid" type="text" placeholder="enter appid" required />
+            <p class="tips">
+              If you don`t know what is your appid, checkout
+              <a
+                href="https://docs.agora.io/en/Agora%20Platform/terms?platform=All%20Platforms#a-nameappidaapp-id"
+                >this</a
+              >
+            </p>
+          </div>
+          <div class="col-sm">
+            <p class="join-info-text">Token(optional)</p>
+            <input id="token" type="text" placeholder="enter token" />
+            <p class="tips">
+              If you don`t know what is your token, checkout
+              <a
+                href="https://docs.agora.io/en/Agora%20Platform/terms?platform=All%20Platforms#a-namekeyadynamic-key"
+                >this</a
+              >
+            </p>
+          </div>
+          <div class="col-sm">
+            <p class="join-info-text">Channel</p>
+            <input
+              id="channel"
+              type="text"
+              placeholder="enter channel name"
+              required
+            />
+            <p class="tips">
+              If you don`t know what is your channel, checkout
+              <a
+                href="https://docs.agora.io/en/Agora%20Platform/terms?platform=All%20Platforms#channel"
+                >this</a
+              >
+            </p>
+          </div>
+        </div>
+        <div class="button-group">
+          <button id="join" type="submit" class="btn btn-primary btn-sm">
+            Join as Viewer
+          </button>
+          <button
+            id="leave"
+            type="button"
+            class="btn btn-primary btn-sm"
+            disabled
+          >
+            Leave
+          </button>
+        </div>
+      </form>
+      <div class="row video-group">
+        <div class="col">
+          <p id="local-player-name" class="player-name"></p>
+          <div style="font-size: 14px; color: #666">
+            This viewer receives video streams with embedded timestamps from the
+            C++ sender.
+          </div>
+        </div>
+        <div class="w-100"></div>
+        <div class="col">
+          <div id="remote-playerlist"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
+    <!-- <script src="./AgoraRTC_N-production.js"></script> -->
+
+    <script>
+      // Force encodedInsertableStreams for Chrome
+      if (
+        typeof RTCPeerConnection !== "undefined" &&
+        navigator.userAgent.indexOf("Chrome") > -1
+      ) {
+        const OriginalRTCPeerConnection = RTCPeerConnection;
+        window.RTCPeerConnection = new Proxy(RTCPeerConnection, {
+          construct(target, args) {
+            console.log("construct called with:", args);
+            if (args.length > 0) {
+              args[0]["encodedInsertableStreams"] = true;
+            } else {
+              args.push({ encodedInsertableStreams: true });
+            }
+            return new OriginalRTCPeerConnection(...args);
+          },
+        });
+
+        // @add: add encodedInsertableStreams when use setConfiguration
+        const originalSetConfiguration =
+          RTCPeerConnection.prototype.setConfiguration;
+
+        window.RTCPeerConnection.prototype.setConfiguration = function (
+          configuration
+        ) {
+          if (configuration) {
+            configuration.encodedInsertableStreams = true;
+            console.log("setConfiguration called with:", configuration);
+          }
+          return originalSetConfiguration.call(this, configuration);
+        };
+      }
+
+      // Timestamp Decoder Utils
+      var DecodeTimestampUtils = (function () {
+        console.log("Initializing DecodeTimestampUtils");
+
+        const worker = new Worker("./timestamp-worker.js", {
+          name: "Decode Timestamp worker",
+        });
+
+        worker.onmessage = (event) => {
+          console.log("Main thread received timestamp:", event.data);
+
+          // Update all remote player timestamps
+          const timestamp = parseInt(event.data);
+          const date = new Date(timestamp);
+          const readableTime =
+            date.toLocaleTimeString() + "." + date.getMilliseconds();
+          console.log("Updating display with time:", readableTime);
+
+          const players = document.querySelectorAll(
+            "#remote-playerlist .player span"
+          );
+          players.forEach((span) => {
+            span.textContent = "Time: " + readableTime;
+          });
+        };
+
+        worker.onerror = (error) => {
+          console.error("Worker error:", error);
+        };
+
+        async function setupReceiver(receiver) {
+          console.log("setupReceiver called with:", receiver);
+
+          if (window.RTCRtpScriptTransform) {
+            // Modern approach (Safari/Firefox/Chrome 97+)
+            console.log("Using RTCRtpScriptTransform approach");
+            try {
+              receiver.transform = new RTCRtpScriptTransform(worker, {
+                operation: "decode",
+              });
+              console.log("RTCRtpScriptTransform set successfully");
+            } catch (e) {
+              console.error("Failed to set RTCRtpScriptTransform:", e);
+            }
+            return;
+          }
+
+          // Legacy Chrome approach
+          if (receiver.createEncodedStreams) {
+            console.log("Using createEncodedStreams approach");
+            try {
+              const receiverStreams = receiver.createEncodedStreams();
+              const { readable, writable } = receiverStreams;
+              worker.postMessage(
+                {
+                  operation: "decode",
+                  readable,
+                  writable,
+                },
+                [readable, writable]
+              );
+              console.log("Encoded streams set up successfully");
+            } catch (e) {
+              console.error("Failed to set up encoded streams:", e);
+            }
+          } else {
+            console.error("No transform API available!");
+          }
+        }
+
+        return {
+          setupReceiver: function (receiver) {
+            setupReceiver(receiver);
+          },
+        };
+      })();
+
+      // @del: if set to true, rtc sdk will create encoded streams for all tracks internally, and we will get error when create encoded streams here
+      // Enable encoded transform
+      // AgoraRTC.setParameter("ENABLE_ENCODED_TRANSFORM", true);
+
+      // Create Agora client
+      var client = AgoraRTC.createClient({ mode: "rtc", codec: "h264" });
+      var remoteUsers = {};
+      var options = {
+        appid: null,
+        channel: null,
+        uid: null,
+        token: null,
+      };
+
+      // Auto join from URL params
+      window.addEventListener("DOMContentLoaded", function () {
+        const urlParams = new URL(location.href).searchParams;
+        options.appid = urlParams.get("appid");
+        options.channel = urlParams.get("channel");
+        options.token = urlParams.get("token");
+        if (options.appid && options.channel) {
+          document.getElementById("appid").value = options.appid;
+          document.getElementById("token").value = options.token || "";
+          document.getElementById("channel").value = options.channel;
+          document
+            .getElementById("join-form")
+            .dispatchEvent(new Event("submit"));
+        }
+      });
+
+      document
+        .getElementById("join-form")
+        .addEventListener("submit", async function (e) {
+          e.preventDefault();
+          document.getElementById("join").disabled = true;
+          try {
+            options.appid = document.getElementById("appid").value;
+            options.token = document.getElementById("token").value;
+            options.channel = document.getElementById("channel").value;
+            await join();
+            if (options.token) {
+              document.getElementById(
+                "success-alert-with-token"
+              ).style.display = "block";
+            } else {
+              const link = document
+                .getElementById("success-alert")
+                .querySelector("a");
+              link.href = `index.html?appid=${options.appid}&channel=${options.channel}&token=${options.token}`;
+              document.getElementById("success-alert").style.display = "block";
+            }
+          } catch (error) {
+            console.error(error);
+          } finally {
+            document.getElementById("leave").disabled = false;
+          }
+        });
+
+      document.getElementById("leave").addEventListener("click", function (e) {
+        leave();
+      });
+
+      // Close button functionality
+      document.querySelectorAll(".close").forEach((button) => {
+        button.addEventListener("click", function () {
+          this.parentElement.style.display = "none";
+        });
+      });
+
+      async function join() {
+        client.on("user-published", handleUserPublished);
+        client.on("user-unpublished", handleUserUnpublished);
+
+        options.uid = await client.join(
+          options.appid,
+          options.channel,
+          options.token || null
+        );
+
+        console.log("Joined channel as viewer, uid:", options.uid);
+        document.getElementById(
+          "local-player-name"
+        ).textContent = `Viewer(${options.uid})`;
+      }
+
+      async function leave() {
+        remoteUsers = {};
+        document.getElementById("remote-playerlist").innerHTML = "";
+        await client.leave();
+        document.getElementById("local-player-name").textContent = "";
+        document.getElementById("join").disabled = false;
+        document.getElementById("leave").disabled = true;
+        console.log("client leaves channel success");
+      }
+
+      async function setupDecoderForTrack(user, mediaType) {
+        console.log(
+          "Setting up decoder for user:",
+          user.uid,
+          "mediaType:",
+          mediaType
+        );
+
+        // Wait for connection to stabilize
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        try {
+          // Access the peer connection through Agora's internal structure
+          const pc = client._p2pChannel?.connection?.peerConnection;
+          if (!pc) {
+            console.error("Could not access peer connection");
+            return;
+          }
+
+          console.log("Found peer connection:", pc);
+          const receivers = pc.getReceivers();
+          console.log("All receivers:", receivers.length);
+
+          // Find the receiver for this track
+          let trackId = null;
+          if (mediaType === "video" && user.videoTrack?._mediaStreamTrack) {
+            trackId = user.videoTrack._mediaStreamTrack.id;
+          } else if (
+            mediaType === "audio" &&
+            user.audioTrack?._mediaStreamTrack
+          ) {
+            trackId = user.audioTrack._mediaStreamTrack.id;
+          }
+
+          if (!trackId) {
+            console.error("Could not get track ID for", mediaType);
+            return;
+          }
+
+          console.log("Looking for track with ID:", trackId);
+
+          for (let receiver of receivers) {
+            if (receiver.track && receiver.track.id === trackId) {
+              console.log("Found matching receiver for", mediaType, "track");
+              DecodeTimestampUtils.setupReceiver(receiver);
+              break;
+            }
+          }
+        } catch (error) {
+          console.error("Error setting up decoder:", error);
+        }
+      }
+
+      async function subscribe(user, mediaType) {
+        const uid = user.uid;
+        await client.subscribe(user, mediaType);
+        console.log("subscribe success");
+
+        if (mediaType === "video") {
+          const player = document.createElement("div");
+          player.id = `player-wrapper-${uid}`;
+          player.innerHTML = `
+      <p class="player-name">remoteUser(${uid})</p>
+      <div id="player-${uid}" class="player"></div>
+    `;
+          document.getElementById("remote-playerlist").appendChild(player);
+
+          const label = document.createElement("span");
+          label.style.cssText =
+            "z-index: 1000; position: absolute; top: 5px; left: 5px; color: white; background-color: rgba(0, 0, 0, 0.7); padding: 2px 5px; border-radius: 3px; font-size: 16px;";
+          label.textContent = "Waiting for timestamp...";
+
+          user.videoTrack.play(`player-${uid}`);
+
+          // Append the label to the player div (which has position: relative)
+          const playerDiv = player.querySelector(`#player-${uid}`);
+          playerDiv.appendChild(label);
+
+          // Set up decoder after track is playing
+          await setupDecoderForTrack(user, mediaType);
+        }
+
+        if (mediaType === "audio") {
+          user.audioTrack.play();
+        }
+      }
+
+      function handleUserPublished(user, mediaType) {
+        const id = user.uid;
+        remoteUsers[id] = user;
+        subscribe(user, mediaType);
+      }
+
+      function handleUserUnpublished(user, mediaType) {
+        if (mediaType === "video") {
+          const id = user.uid;
+          delete remoteUsers[id];
+          const element = document.getElementById(`player-wrapper-${id}`);
+          if (element) element.remove();
+        }
+      }
+    </script>
+  </body>
+</html>
+
